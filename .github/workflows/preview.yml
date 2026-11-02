@@ -1,0 +1,64 @@
+name: Publish digest preview
+
+# Every run is manual: publishing and replacing the page each need human approval.
+on:
+  workflow_dispatch:
+    inputs:
+      include_marker:
+        description: Include the lane marker for the initial review
+        type: boolean
+        required: true
+        default: false
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+  actions: write
+
+concurrency:
+  group: digest-preview
+  cancel-in-progress: false
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '24'
+      - uses: pnpm/action-setup@v6.1.0
+        with:
+          version: 11.25.0
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+      - run: pnpm typecheck
+      - name: Save the digest from a localhost server
+        env:
+          INCLUDE_MARKER: ${{ inputs.include_marker }}
+          LANE_MARKER: ${{ inputs.include_marker && secrets.LANE_MARKER || '' }}
+        run: |
+          if [ "$INCLUDE_MARKER" = true ] && [ -z "$LANE_MARKER" ]; then
+            echo 'Set the repository LANE_MARKER secret before the initial review.' >&2
+            exit 1
+          fi
+          pnpm preview "$RUNNER_TEMP/digest-preview/index.html"
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v5.0.0
+        id: upload
+        with:
+          path: ${{ runner.temp }}/digest-preview
+          retention-days: 1
+      - uses: actions/deploy-pages@v5.0.1
+        id: deploy
+      - name: Delete the temporary upload after deployment
+        if: always() && steps.upload.outputs.artifact_id != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACT_ID: ${{ steps.upload.outputs.artifact_id }}
+        run: gh api --method DELETE "repos/$GITHUB_REPOSITORY/actions/artifacts/$ARTIFACT_ID"
