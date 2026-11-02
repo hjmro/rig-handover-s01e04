@@ -32,5 +32,11 @@ After review and separate human approval, run the workflow again with
 contain the marker, then remove the repository marker secret. Pages can be unpublished
 from the repository's Pages settings.
 
+Use a new source commit for a replacement, even when only the export environment changes.
+Pages identifies a deployment by its source commit; repeated manual uploads at the same
+commit can report success while the previous HTML remains live
+([deploy-pages issue 383](https://github.com/actions/deploy-pages/issues/383)). Verify the
+public response itself before closing the cleanup issue or archiving the plan.
+
 References: [GitHub Pages custom workflows](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages),
 [deleting upload artifacts](https://docs.github.com/en/rest/actions/artifacts#delete-an-artifact).
